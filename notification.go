@@ -11,6 +11,11 @@ import (
 )
 
 type Payload struct {
+	SchedulerPayload SchedulerPayload
+	GotifyPayload    GotifyPayload
+}
+
+type SchedulerPayload struct {
 	Project   string    `json:"project"`
 	Service   string    `json:"service"`
 	Container string    `json:"container"`
@@ -21,6 +26,11 @@ type Payload struct {
 	Error     string    `json:"error,omitempty"`
 }
 
+type GotifyPayload struct {
+	Message string `json:"message"`
+	Title   string `json:"title"`
+}
+
 type HTTPNotification struct {
 	URL           string        `long:"url" env:"URL" description:"URL to invoke"`
 	Retries       int           `long:"retries" env:"RETRIES" description:"Number of additional retries" default:"5"`
@@ -28,6 +38,8 @@ type HTTPNotification struct {
 	Method        string        `long:"method" env:"METHOD" description:"HTTP method" default:"POST"`
 	Timeout       time.Duration `long:"timeout" env:"TIMEOUT" description:"Request timeout" default:"30s"`
 	Authorization string        `long:"authorization" env:"AUTHORIZATION" description:"Authorization header value"`
+	Gotify        string        `long:"gotify" env:"GOTIFY" description:"Use Gotify format"`
+	OnlyFailures  string        `long:"onlyfailures" env:"ONLY_FAILURES" description:"Only send notifications for failed jobs"`
 	UserAgent     string
 }
 
@@ -58,10 +70,17 @@ func (ht *HTTPNotification) Notify(ctx context.Context, record *Payload) error {
 func (ht *HTTPNotification) notify(message *Payload) error {
 	ctx, cancel := context.WithTimeout(context.Background(), ht.Timeout)
 	defer cancel()
+	var data []byte
+	var jsonErr error
 
-	data, err := json.Marshal(message)
-	if err != nil {
-		return fmt.Errorf("marshal: %w", err)
+	if ht.Gotify != "" {
+		data, jsonErr = json.Marshal(message.GotifyPayload)
+	} else {
+		data, jsonErr = json.Marshal(message.SchedulerPayload)
+	}
+
+	if jsonErr != nil {
+		return fmt.Errorf("marshal: %w", jsonErr)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, ht.Method, ht.URL, bytes.NewReader(data))

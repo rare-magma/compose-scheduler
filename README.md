@@ -1,7 +1,7 @@
 # Docker-Compose scheduler
 
 Simple and lightweight service which can execute `docker compose run ...` services from the same file based on cron
-expression. 
+expression.
 
 Features:
 
@@ -39,7 +39,7 @@ Supports two modes:
 
 ## Usage
 
-```
+```text
 Application Options:
       --project=              Docker compose project, will be automatically detected if not set [$PROJECT]
 
@@ -50,6 +50,8 @@ HTTP notification:
       --notify.method=        HTTP method (default: POST) [$NOTIFY_METHOD]
       --notify.timeout=       Request timeout (default: 30s) [$NOTIFY_TIMEOUT]
       --notify.authorization= Authorization header value [$NOTIFY_AUTHORIZATION]
+      --notify.gotify=        Use Gotify format [$NOTIFY_GOTIFY]
+      --notify.onlyfailures=  Only send notifications for failed jobs [$NOTIFY_ONLY_FAILURES]
 
 Help Options:
   -h, --help                  Show this help message
@@ -61,6 +63,8 @@ Scheduler will send notifications after each job if `NOTIFY_URL` env variable or
 notification is a simple HTTP request.
 HTTP method, attempts number, and interval between attempts can be configured.
 Authorization via `Authorization` header also supported.
+If `NOTIFY_GOTIFY` is set the gotify notification format is used.
+When `NOTIFY_ONLY_FAILURES` is set, notifications will be sent only when the job fails.
 
 Scheduler will stop retries if at least one of the following criteria met:
 
@@ -73,7 +77,7 @@ Outgoing custom headers:
 - `User-Agent: scheduler/<version>`, where `<version>` is build version
 - `Authorization: <value>` (if set)
 
-Payload:
+Normal Payload:
 
 ```json
 {
@@ -88,5 +92,15 @@ Payload:
 }
 ```
 
-> field `error` exists only if `failed == true`
+> Note: the field `error` exists only if `failed == true`
 
+Gotify Payload:
+
+Using the same example as above:
+
+```json
+{
+  "message": "Project: compose-project\nService: web\nContainer: deadbeaf1234\nError: exit code 1\nStarted: 2023-01-20T11:10:39.44006+08:00\nFinished: 2023-01-20T11:10:39.751879+08:00\nSchedule: @daily",
+  "title": "Service web failed"
+}
+```

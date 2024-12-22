@@ -117,16 +117,39 @@ func (sc *Scheduler) runJob(ctx context.Context, running *int32, t Task) {
 	if sc.notification == nil {
 		return
 	}
-	err = sc.notification.Notify(ctx, &Payload{
-		Project:   sc.project,
-		Service:   t.Service,
-		Container: t.Container,
-		Schedule:  t.Schedule,
-		Started:   started,
-		Finished:  end,
-		Failed:    err != nil,
-		Error:     errMessage,
-	})
+
+	if err == nil && sc.notification.OnlyFailures != "" {
+		return
+	}
+
+	if sc.notification.Gotify != "" {
+		var title string
+		if err != nil {
+			title = "Service %s failed"
+		} else {
+			title = "Service %s finished"
+		}
+		err = sc.notification.notify(&Payload{
+			GotifyPayload: GotifyPayload{
+				Title:   fmt.Sprintf(title, t.Service),
+				Message: fmt.Sprintf("Project: %s\nService: %s\nContainer: %s\nError: %s\nStarted: %s\nFinished: %s\nSchedule: %s", sc.project, t.Service, t.Container, errMessage, started, end, t.Schedule),
+			},
+		})
+	} else {
+		err = sc.notification.Notify(ctx, &Payload{
+			SchedulerPayload: SchedulerPayload{
+				Project:   sc.project,
+				Service:   t.Service,
+				Container: t.Container,
+				Schedule:  t.Schedule,
+				Started:   started,
+				Finished:  end,
+				Failed:    err != nil,
+				Error:     errMessage,
+			},
+		})
+	}
+
 	if err != nil {
 		log.Println("notification for service", t.Service, "failed:", err)
 	} else {
