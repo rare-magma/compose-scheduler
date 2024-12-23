@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/kballard/go-shellquote"
 	"github.com/robfig/cron/v3"
 )
@@ -132,7 +134,7 @@ func (sc *Scheduler) runJob(ctx context.Context, running *int32, t Task) {
 		err = sc.notification.notify(&Payload{
 			GotifyPayload: GotifyPayload{
 				Title:   fmt.Sprintf(title, t.Service),
-				Message: fmt.Sprintf("Project: %s\nService: %s\nContainer: %s\nError: %s\nStarted: %s\nFinished: %s\nSchedule: %s", sc.project, t.Service, t.Container, errMessage, started, end, t.Schedule),
+				Message: fmt.Sprintf("Project: %s\nService: %s\nContainer: %s\nError: %s\nStarted: %s\nFinished: %s\nSchedule: %s", sc.project, t.Service, t.Container, errMessage, started.Format(time.RFC3339), end.Format(time.RFC3339), t.Schedule),
 			},
 		})
 	} else {
@@ -230,10 +232,26 @@ func (sc *Scheduler) runService(ctx context.Context, task Task) error {
 	select {
 	case res := <-ok:
 		if res.Error != nil {
-			return fmt.Errorf("service %s: %s", task.Service, res.Error.Message)
+			return fmt.Errorf("message: %s", res.Error.Message)
 		}
 		if res.StatusCode != 0 {
-			return fmt.Errorf("service %s: status code %d", task.Service, res.StatusCode)
+			reader, err := sc.client.ContainerLogs(ctx, task.Container, types.ContainerLogsOptions{
+				ShowStdout: true,
+				ShowStderr: true,
+				Timestamps: true,
+				Follow:     false,
+				Tail:       "10",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to get container logs for service %s: %w", task.Service, err)
+			}
+			defer reader.Close()
+			logs := bytes.NewBufferString("")
+			_, err = stdcopy.StdCopy(logs, logs, reader)
+			if err != nil {
+				return fmt.Errorf("failed to copy container logs for service %s: %w", task.Service, err)
+			}
+			return fmt.Errorf("status code: %d, logs: %s", res.StatusCode, logs)
 		}
 	case err = <-failed:
 		return fmt.Errorf("wait for service %s: %w", task.Service, err)

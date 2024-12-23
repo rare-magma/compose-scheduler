@@ -100,7 +100,7 @@ Using the same example as above:
 
 ```json
 {
-  "message": "Project: compose-project\nService: web\nContainer: deadbeaf1234\nError: exit code 1\nStarted: 2023-01-20T11:10:39.44006+08:00\nFinished: 2023-01-20T11:10:39.751879+08:00\nSchedule: @daily",
+  "message": "Project: compose-project\nService: web\nContainer: deadbeaf1234\nError: status code: exit code 1, logs: 2024-12-23T18:25:23.115935476Z 2024/12/23 18:25:23 Error \nStarted: 2006-01-02T15:04:05Z07:00\nFinished: 2006-01-02T15:04:05Z07:00\nSchedule: @daily",
   "title": "Service web failed"
 }
 ```
